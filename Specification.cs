@@ -52,4 +52,11 @@ public class Specification<TEntity> : ISpecification<TEntity>
         _orderByDescendingQueries ??= new();
         _orderByDescendingQueries.Add(query);
     }
+
+    public Specification<TEntity> And(Specification<TEntity> specification)
+    => new AndSpecification<TEntity>(this, specification);
+
+    public Specification<TEntity> Or(Specification<TEntity> specification)
+        => new OrSpecification<TEntity>(this, specification);
 }
+
