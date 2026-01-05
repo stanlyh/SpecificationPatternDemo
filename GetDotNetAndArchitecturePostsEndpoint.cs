@@ -1,4 +1,7 @@
-﻿namespace SpecificationPatternDemo;
+﻿using SpecificationPatternDemo.Data;
+using SpecificationPatternDemo.Dto;
+
+namespace SpecificationPatternDemo;
 
 public class GetDotNetAndArchitecturePostsEndpoint : IEndpoint
 {
