@@ -1,10 +1,12 @@
-﻿namespace SpecificationPatternDemo;
+﻿using Microsoft.EntityFrameworkCore;
+
+namespace SpecificationPatternDemo;
 
 public class BaseRepository<TEntity> where TEntity : class
 {
     private readonly ApplicationDbContext _dbContext;
 
-    public Repository(ApplicationDbContext dbContext)
+    public BaseRepository(ApplicationDbContext dbContext)
     {
         _dbContext = dbContext;
     }

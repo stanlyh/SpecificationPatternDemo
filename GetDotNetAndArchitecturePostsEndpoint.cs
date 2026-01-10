@@ -1,5 +1,6 @@
-﻿using SpecificationPatternDemo.Data;
+﻿using SpecificationPatternDemo;
 using SpecificationPatternDemo.Dto;
+using Microsoft.EntityFrameworkCore;
 
 namespace SpecificationPatternDemo;
 
@@ -18,8 +19,9 @@ public class GetDotNetAndArchitecturePostsEndpoint : IEndpoint
 
         var response = await dbContext
             .ApplySpecification(specification)
-            .Select(post => post.ToDto())
-            .ToListAsync(cancellationToken);
+            .Select(Post.ToDtoExpression)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 
         return Results.Ok(response);
     }

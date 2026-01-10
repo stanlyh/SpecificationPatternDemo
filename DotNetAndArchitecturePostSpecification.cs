@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.Hosting;
-
-namespace SpecificationPatternDemo;
+﻿namespace SpecificationPatternDemo;
 
 public class DotNetAndArchitecturePostSpecification : Specification<Post>
 {
@@ -16,8 +14,4 @@ public class DotNetAndArchitecturePostSpecification : Specification<Post>
 
         AddOrderByDescendingQuery(post => post.Id);
     }
-}
-
-public class Post
-{
 }

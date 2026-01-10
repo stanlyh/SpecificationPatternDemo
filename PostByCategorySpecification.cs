@@ -1,19 +1,14 @@
-﻿
+﻿using System;
 
-namespace SpecificationPatternDemo
+namespace SpecificationPatternDemo;
+
+public class PostByCategorySpecification : Specification<Post>
 {
-    internal class PostByCategorySpecification
+    public PostByCategorySpecification(string category)
     {
-        private string v;
+        if (string.IsNullOrWhiteSpace(category))
+            throw new ArgumentException("category is required", nameof(category));
 
-        public PostByCategorySpecification(string v)
-        {
-            this.v = v;
-        }
-
-        internal object Or(PostByCategorySpecification architectureSpec)
-        {
-            throw new NotImplementedException();
-        }
+        AddFilteringQuery(post => post.Category == category);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace SpecificationPatternDemo;
 
@@ -19,8 +20,9 @@ public class GetViralPostsEndpoint : IEndpoint
 
         var response = await dbContext
             .ApplySpecification(specification)
-            .Select(post => post.ToDto())
-            .ToListAsync(cancellationToken);
+            .Select(Post.ToDtoExpression)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 
         logger.LogInformation("Retrieved {Count} viral posts with minimum {MinLikes} likes",
             response.Count, minLikesCount ?? 150);

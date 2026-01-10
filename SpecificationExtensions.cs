@@ -1,6 +1,8 @@
-﻿namespace SpecificationPatternDemo;
+﻿using Microsoft.EntityFrameworkCore;
 
-public class SpecificationExtensions
+namespace SpecificationPatternDemo;
+
+public static class SpecificationExtensions
 {
     public static IQueryable<TEntity> ApplySpecification<TEntity>(
         this ApplicationDbContext dbContext,
