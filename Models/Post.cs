@@ -8,7 +8,7 @@ namespace SpecificationPatternDemo;
 public class Post
 {
     public int Id { get; set; }
-    public Guid AuthorId { get; set; }
+    public string? AuthorId { get; set; }
     public string? Title { get; set; }
     public string? Content { get; set; }
     public string? Category { get; set; }
@@ -20,6 +20,7 @@ public class Post
     public static readonly Expression<Func<Post, PostDto>> ToDtoExpression =
         post => new PostDto(
             post.Id,
+            post.AuthorId ?? string.Empty,
             post.Title ?? string.Empty,
             post.Content ?? string.Empty,
             post.Category ?? string.Empty,

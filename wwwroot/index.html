@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SpecificationPatternDemo</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Specification Pattern Demo</h1>
+
+    <section id="auth">
+      <h2>Auth</h2>
+      <input id="username" placeholder="username" />
+      <input id="role" placeholder="role (optional)" />
+      <button id="btn-login">Login (get token)</button>
+      <div id="token-area" class="hidden">
+        <p>Token: <code id="token-value"></code></p>
+        <button id="btn-logout">Logout</button>
+      </div>
+    </section>
+
+    <section id="create">
+      <h2>Create Post</h2>
+      <input id="title" placeholder="title" />
+      <input id="category" placeholder="category" />
+      <textarea id="content" placeholder="content"></textarea>
+      <button id="btn-create">Create</button>
+    </section>
+
+    <section id="posts">
+      <h2>Posts</h2>
+      <div>
+        <label>Category filter: <input id="filter-category" /></label>
+        <label>min likes: <input id="filter-minlikes" type="number" /></label>
+        <button id="btn-refresh">Refresh</button>
+      </div>
+
+      <div id="posts-list"></div>
+      <div id="pagination"></div>
+    </section>
+
+    <section id="edit-area"></section>
+    <section id="comments-area"></section>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

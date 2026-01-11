@@ -5,6 +5,7 @@ namespace SpecificationPatternDemo.Dto;
 
 public record PostDto(
     int Id,
+    string AuthorId,
     string Title,
     string Content,
     string Category,
