@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 
 namespace SpecificationPatternDemo.Controllers;
 
@@ -11,65 +12,90 @@ namespace SpecificationPatternDemo.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly JwtOptions _jwtOptions;
+    private readonly ApplicationDbContext _db;
 
-    public AuthController(JwtOptions jwtOptions)
+    public AuthController(JwtOptions jwtOptions, ApplicationDbContext db)
     {
         _jwtOptions = jwtOptions;
+        _db = db;
     }
 
     // Demo login endpoint. Accepts username and optional role.
     [HttpPost("login")]
-    public IActionResult Login([FromBody] LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        var claims = new List<Claim>
+        var claims = new List<System.Security.Claims.Claim>
         {
-            new Claim(ClaimTypes.Name, request.Username),
-            new Claim(JwtRegisteredClaimNames.Sub, request.Username)
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, request.Username),
+            new System.Security.Claims.Claim(JwtRegisteredClaimNames.Sub, request.Username)
         };
 
         if (!string.IsNullOrWhiteSpace(request.Role))
         {
-            claims.Add(new Claim(ClaimTypes.Role, request.Role));
+            claims.Add(new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, request.Role));
         }
 
         var token = BuildToken(claims);
 
-        return Ok(new { token, username = request.Username, role = request.Role });
+        // create refresh token and persist
+        var refresh = new RefreshToken
+        {
+            Token = Guid.NewGuid().ToString("N"),
+            UserId = request.Username,
+            CreatedAt = DateTime.UtcNow,
+            Expires = DateTime.UtcNow.AddDays(7)
+        };
+
+        _db.RefreshTokens.Add(refresh);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { token, refreshToken = refresh.Token, username = request.Username, role = request.Role });
     }
 
     [HttpPost("refresh")]
-    public IActionResult Refresh([FromBody] RefreshRequest request)
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
     {
-        // In a real app validate refresh token; here we simply re-issue a new token for demonstration.
-        try
+        // request should contain refreshToken
+        var refreshToken = await _db.RefreshTokens.FirstOrDefaultAsync(r => r.Token == request.Token);
+        if (refreshToken is null) return BadRequest("Invalid refresh token");
+        if (refreshToken.IsRevoked) return BadRequest("Refresh token revoked");
+        if (refreshToken.IsExpired) return BadRequest("Refresh token expired");
+
+        // issue new jwt and new refresh token (rotate)
+        var username = refreshToken.UserId;
+        var claims = new List<System.Security.Claims.Claim> { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, username) };
+        var newJwt = BuildToken(claims);
+
+        // revoke old refresh token and create a new one
+        refreshToken.RevokedAt = DateTime.UtcNow;
+
+        var newRefresh = new RefreshToken
         {
-            var handler = new JwtSecurityTokenHandler();
-            var principal = handler.ValidateToken(request.Token, new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = false,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = _jwtOptions.Issuer,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Key)),
-                ValidateLifetime = false // allow expired tokens for refresh demo only
-            }, out var validatedToken);
+            Token = Guid.NewGuid().ToString("N"),
+            UserId = username,
+            CreatedAt = DateTime.UtcNow,
+            Expires = DateTime.UtcNow.AddDays(7)
+        };
 
-            var username = principal.Identity?.Name ?? "";
-            var role = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+        _db.RefreshTokens.Add(newRefresh);
+        await _db.SaveChangesAsync();
 
-            var claims = new List<Claim> { new Claim(ClaimTypes.Name, username) };
-            if (!string.IsNullOrWhiteSpace(role)) claims.Add(new Claim(ClaimTypes.Role, role));
-
-            var newToken = BuildToken(claims);
-            return Ok(new { token = newToken, username, role });
-        }
-        catch
-        {
-            return BadRequest("Invalid token");
-        }
+        return Ok(new { token = newJwt, refreshToken = newRefresh.Token, username });
     }
 
-    private string BuildToken(IEnumerable<Claim> claims)
+    [HttpPost("revoke")]
+    public async Task<IActionResult> Revoke([FromBody] RevokeRequest request)
+    {
+        var refreshToken = await _db.RefreshTokens.FirstOrDefaultAsync(r => r.Token == request.RefreshToken);
+        if (refreshToken is null) return NotFound();
+
+        refreshToken.RevokedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    private string BuildToken(IEnumerable<System.Security.Claims.Claim> claims)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -86,3 +112,4 @@ public class AuthController : ControllerBase
 
 public record LoginRequest(string Username, string? Role);
 public record RefreshRequest(string Token);
+public record RevokeRequest(string RefreshToken);

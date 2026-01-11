@@ -1,15 +1,18 @@
 const apiBase = '';
 let token = loadToken();
+let refreshToken = localStorage.getItem('spec_refresh');
 let tokenExpiry = loadTokenExpiry();
 let username = localStorage.getItem('spec_username');
 let role = localStorage.getItem('spec_role');
 let pageNumber = 1;
 let pageSize = 5;
 
-function saveToken(t, usernameVal, roleVal, expiresInSec = 60*60*12) {
+function saveToken(t, refresh, usernameVal, roleVal, expiresInSec = 60*60*12) {
   token = t;
+  refreshToken = refresh;
   tokenExpiry = Date.now() + expiresInSec * 1000;
   localStorage.setItem('spec_token', token);
+  localStorage.setItem('spec_refresh', refreshToken);
   localStorage.setItem('spec_token_expiry', tokenExpiry.toString());
   if (usernameVal) { localStorage.setItem('spec_username', usernameVal); username = usernameVal; }
   if (roleVal) { localStorage.setItem('spec_role', roleVal); role = roleVal; }
@@ -18,7 +21,7 @@ function saveToken(t, usernameVal, roleVal, expiresInSec = 60*60*12) {
 
 function loadToken() { return localStorage.getItem('spec_token'); }
 function loadTokenExpiry() { const v = localStorage.getItem('spec_token_expiry'); return v ? parseInt(v, 10) : 0; }
-function clearToken() { token = null; tokenExpiry = 0; localStorage.removeItem('spec_token'); localStorage.removeItem('spec_token_expiry'); localStorage.removeItem('spec_username'); localStorage.removeItem('spec_role'); username = null; role = null; updateUserDisplay(); }
+function clearToken() { token = null; tokenExpiry = 0; localStorage.removeItem('spec_token'); localStorage.removeItem('spec_token_expiry'); localStorage.removeItem('spec_username'); localStorage.removeItem('spec_role'); localStorage.removeItem('spec_refresh'); username = null; role = null; updateUserDisplay(); }
 
 function updateUserDisplay() {
   const area = document.getElementById('token-area');
@@ -38,11 +41,13 @@ async function tryRefreshIfNeeded() {
   // refresh if less than 5 minutes
   if (timeLeft > 5 * 60 * 1000) return true;
 
-  // call refresh
-  const resp = await fetch('/api/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+  if (!refreshToken) { clearToken(); return false; }
+
+  // call refresh with stored refresh token
+  const resp = await fetch('/api/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Token: refreshToken }) });
   if (!resp.ok) { clearToken(); return false; }
   const body = await resp.json();
-  saveToken(body.token, body.username, body.role);
+  saveToken(body.token, body.refreshToken, body.username, body.role);
   return true;
 }
 
@@ -61,13 +66,18 @@ document.getElementById('btn-login').addEventListener('click', async () => {
   const r = document.getElementById('role').value;
   if (!uname) return alert('username required');
 
+  setLoading(true);
   const resp = await fetch(`/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Username: uname, Role: r }) });
+  setLoading(false);
   if (!resp.ok) return alert('login failed');
   const data = await resp.json();
-  saveToken(data.token, data.username, data.role);
+  saveToken(data.token, data.refreshToken, data.username, data.role);
 });
 
-document.getElementById('btn-logout').addEventListener('click', () => { clearToken(); } );
+document.getElementById('btn-logout').addEventListener('click', async () => { 
+  if (refreshToken) await fetch('/api/auth/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RefreshToken: refreshToken }) });
+  clearToken();
+});
 
 // Create
 document.getElementById('btn-create').addEventListener('click', async () => {
@@ -105,11 +115,7 @@ function showEditForm(post) {
 }
 
 // loading indicator
-function setLoading(on) {
-  const el = document.getElementById('loading');
-  if (!el) return;
-  el.style.display = on ? 'block' : 'none';
-}
+function setLoading(on) { const el = document.getElementById('loading'); if (!el) return; el.style.display = on ? 'block' : 'none'; }
 
 // load posts and show comments
 async function loadPosts() {
@@ -246,18 +252,6 @@ function showComments(postId, comments) {
 }
 
 function escapeHtml(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-// wire refresh button and show user info
-const userInfo = document.createElement('div'); userInfo.innerHTML = 'Current user: <span id="current-user"></span> (<span id="current-role"></span>) <button id="btn-refresh-token">Refresh Token</button>';
-const authSection = document.getElementById('auth'); authSection.appendChild(userInfo);
-
-document.getElementById('btn-refresh-token').addEventListener('click', async () => {
-  if (!token) return alert('not logged in');
-  const resp = await fetch('/api/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
-  if (!resp.ok) return alert('refresh failed');
-  const b = await resp.json(); saveToken(b.token, b.username, b.role);
-  alert('token refreshed');
-});
 
 updateUserDisplay();
 loadPosts();

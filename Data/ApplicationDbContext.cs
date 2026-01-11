@@ -12,6 +12,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Post> Posts { get; set; } = null!;
     public DbSet<Like> Likes { get; set; } = null!;
     public DbSet<Comment> Comments { get; set; } = null!;
+    public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -26,5 +27,6 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<Like>(entity => { entity.HasKey(l => l.Id); });
         modelBuilder.Entity<Comment>(entity => { entity.HasKey(c => c.Id); });
+        modelBuilder.Entity<RefreshToken>(entity => { entity.HasKey(r => r.Id); });
     }
 }

@@ -16,10 +16,14 @@
       <input id="role" placeholder="role (optional)" />
       <button id="btn-login">Login (get token)</button>
       <div id="token-area" class="hidden">
+        <p>Current user: <strong id="current-user"></strong> (<span id="current-role"></span>)</p>
         <p>Token: <code id="token-value"></code></p>
+        <button id="btn-refresh-token">Refresh Token</button>
         <button id="btn-logout">Logout</button>
       </div>
     </section>
+
+    <div id="loading" style="display:none;">Loading...</div>
 
     <section id="create">
       <h2>Create Post</h2>
