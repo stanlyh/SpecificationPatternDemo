@@ -4,6 +4,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
 
 namespace SpecificationPatternDemo.Controllers;
 
@@ -18,6 +19,14 @@ public class AuthController : ControllerBase
     {
         _jwtOptions = jwtOptions;
         _db = db;
+    }
+
+    private static string Hash(string token)
+    {
+        using var sha = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(token);
+        var hash = sha.ComputeHash(bytes);
+        return Convert.ToHexString(hash);
     }
 
     // Demo login endpoint. Accepts username and optional role.
@@ -37,10 +46,13 @@ public class AuthController : ControllerBase
 
         var token = BuildToken(claims);
 
-        // create refresh token and persist
+        // create refresh token value and persist only hash
+        var rawRefresh = Guid.NewGuid().ToString("N");
+        var refreshHash = Hash(rawRefresh);
+
         var refresh = new RefreshToken
         {
-            Token = Guid.NewGuid().ToString("N"),
+            TokenHash = refreshHash,
             UserId = request.Username,
             CreatedAt = DateTime.UtcNow,
             Expires = DateTime.UtcNow.AddDays(7)
@@ -49,14 +61,15 @@ public class AuthController : ControllerBase
         _db.RefreshTokens.Add(refresh);
         await _db.SaveChangesAsync();
 
-        return Ok(new { token, refreshToken = refresh.Token, username = request.Username, role = request.Role });
+        return Ok(new { token, refreshToken = rawRefresh, username = request.Username, role = request.Role });
     }
 
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
     {
-        // request should contain refreshToken
-        var refreshToken = await _db.RefreshTokens.FirstOrDefaultAsync(r => r.Token == request.Token);
+        // request should contain refreshToken raw value
+        var hash = Hash(request.Token);
+        var refreshToken = await _db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash);
         if (refreshToken is null) return BadRequest("Invalid refresh token");
         if (refreshToken.IsRevoked) return BadRequest("Refresh token revoked");
         if (refreshToken.IsExpired) return BadRequest("Refresh token expired");
@@ -69,9 +82,10 @@ public class AuthController : ControllerBase
         // revoke old refresh token and create a new one
         refreshToken.RevokedAt = DateTime.UtcNow;
 
+        var newRawRefresh = Guid.NewGuid().ToString("N");
         var newRefresh = new RefreshToken
         {
-            Token = Guid.NewGuid().ToString("N"),
+            TokenHash = Hash(newRawRefresh),
             UserId = username,
             CreatedAt = DateTime.UtcNow,
             Expires = DateTime.UtcNow.AddDays(7)
@@ -80,13 +94,14 @@ public class AuthController : ControllerBase
         _db.RefreshTokens.Add(newRefresh);
         await _db.SaveChangesAsync();
 
-        return Ok(new { token = newJwt, refreshToken = newRefresh.Token, username });
+        return Ok(new { token = newJwt, refreshToken = newRawRefresh, username });
     }
 
     [HttpPost("revoke")]
     public async Task<IActionResult> Revoke([FromBody] RevokeRequest request)
     {
-        var refreshToken = await _db.RefreshTokens.FirstOrDefaultAsync(r => r.Token == request.RefreshToken);
+        var hash = Hash(request.RefreshToken);
+        var refreshToken = await _db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash);
         if (refreshToken is null) return NotFound();
 
         refreshToken.RevokedAt = DateTime.UtcNow;

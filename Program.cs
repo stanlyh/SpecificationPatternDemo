@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using SpecificationPatternDemo;
+using SpecificationPatternDemo.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,9 @@ builder.Services.AddOpenApi();
 // Register DbContext with in-memory provider for demo
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseInMemoryDatabase("SpecificationDemoDb"));
+
+// Configure options for cleanup service from configuration (appsettings)
+builder.Services.Configure<RefreshTokenCleanupOptions>(builder.Configuration.GetSection("RefreshTokenCleanup"));
 
 // Authentication config - demo symmetric key
 var jwtKey = "super_secret_demo_key_please_change";
@@ -52,6 +56,9 @@ builder.Services.AddAuthorization(options =>
 
 // Simple token helper service for demo
 builder.Services.AddSingleton(new JwtOptions { Key = jwtKey, Issuer = issuer });
+
+// Register cleanup background service
+builder.Services.AddHostedService<RefreshTokenCleanupService>();
 
 var app = builder.Build();
 
